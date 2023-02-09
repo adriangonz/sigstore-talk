@@ -1,0 +1,9 @@
+# For demo
+sigstore==1.1.0
+scikit-learn==1.2.1
+mlserver==1.2.3
+mlserver-sklearn==1.2.3
+
+# For Notebook
+jupyterlab==3.6.1
+

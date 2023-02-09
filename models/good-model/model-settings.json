@@ -1,0 +1,8 @@
+{
+  "name": "good-model",
+  "implementation": "runtime.SigstoreModel",
+  "parameters": {
+    "uri": "model.joblib",
+    "bundle_path": "model.joblib.sigstore"
+  }
+}
