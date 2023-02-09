@@ -1,0 +1,4 @@
+{
+  "name": "naive-model",
+  "implementation": "mlserver_sklearn.SKLearnModel"
+}
