@@ -1,5 +1,7 @@
 # Sigstore Example
 
+This example is part of a talk in [Supply Chain Security for MLSecOps](https://docs.google.com/presentation/d/1O2JZHj2DzwzSbZZLqyPbUZ6QlMKf4V1QuRcq4ok9baI/edit). 
+
 ## Training
 
 The first step will be to train a simple `scikit-learn` model.
@@ -105,25 +107,14 @@ with open(tampered_file_name, 'wb') as f:
 from mlserver import MLModel
 from mlserver.utils import get_model_uri
 from mlserver.errors import MLServerError
-from mlserver_sklearn import SKLearnModel, WELLKNOWN_MODEL_FILENAMES
-from pydantic import BaseSettings, Extra
+from mlserver_sklearn.sklearn import SKLearnModel, WELLKNOWN_MODEL_FILENAMES
 
 from sigstore_protobuf_specs.dev.sigstore.bundle.v1 import Bundle
 from sigstore.verify import Verifier, VerificationMaterials
 from sigstore.verify.policy import Identity
 
-class SigstoreSettings(BaseSettings):
-    """
-    Parameters for Sigstore validation
-    """
-
-    class Config:
-        env_prefix = "MLSERVER_SIGSTORE_"
-        extra = Extra.allow
-
-    bundle_path: str = ""
-    cert_identity: str = ""
-    cert_oidc_issuer: str = ""
+CERT_IDENTITY = "agm@seldon.io"
+CERT_OIDC_ISSUER = "https://accounts.google.com"
 
 class VerificationError(MLServerError):
     def __init__(self, model_name: str, reason: str):
@@ -133,39 +124,36 @@ class VerificationError(MLServerError):
 class SigstoreModel(SKLearnModel):
 
     async def load(self):
-        model_uri = get_model_uri(self._settings, WELLKNOWN_MODEL_FILENAMES)
-
-        extra = settings.parameters or {}
-        self._sigstore_settings = SigstoreSettings(**extra)
-        self.verify()
-
+        model_uri = await get_model_uri(
+            self._settings, wellknown_filenames=WELLKNOWN_MODEL_FILENAMES
+        )
+        self.verify(model_uri)
         return await super().load()
 
-    @property
-    def _bundle(self) -> Bundle:
-        with open(self._sigstore_settings.bundle_path, 'r') as bundle_file:
+    def _get_bundle(self, model_uri: str) -> Bundle:
+        bundle_path = f"{model_uri}.sigstore"
+        with open(bundle_path, 'r') as bundle_file:
             return Bundle().from_json(bundle_file.read())
 
-    @property
-    def _materials(self) -> VerificationMaterials:
-        model_uri = get_model_uri(self._settings, WELLKNOWN_MODEL_FILENAMES)
+    def _get_materials(self, model_uri: str) -> VerificationMaterials:
         with open(model_uri, 'rb') as model_file:
-            artefact = model_file.read()
-            materials = VerificationMaterials.from_bundle(
-                input_=artefact,
-                bundle=self._bundle,
+            bundle = self._get_bundle(model_uri)
+            return VerificationMaterials.from_bundle(
+                input_=model_file,
+                bundle=bundle,
                 offline=True
             )
 
-    def verify(self):
+    def verify(self, model_uri: str):
         verifier = Verifier.production()
         identity = Identity(
-            identity=self._sigstore_settings.cert_identity,
-            issuer=self._sigstore_settings.cert_oidc_issuer,
+            identity=CERT_IDENTITY,
+            issuer=CERT_OIDC_ISSUER,
         )
 
+        materials = self._get_materials(model_uri)
         result = verifier.verify(
-            self._materials,
+            materials,
             identity
         )
 
