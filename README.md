@@ -56,6 +56,11 @@ model_file_name = "./models/good-model/model.joblib"
 joblib.dump(classifier, model_file_name)
 ```
 
+
+```python
+open(model_file_name, 'rb').read()
+```
+
 ## Signing our Model
 
 Now that we have a model artefact, the next step will be to sign our binary.
